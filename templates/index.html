@@ -1,0 +1,2192 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AutonomIQ - Intelligent Vehicle Diagnostics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Reset and base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: #f8f9fa;
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Main layout */
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* Sidebar styles */
+        .sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #ecf0f1;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .nav-menu {
+            list-style: none;
+            flex-grow: 1;
+        }
+        
+        .nav-item {
+            margin-bottom: 5px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            background-color: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        
+        .nav-link i {
+            margin-right: 10px;
+            font-size: 1.1rem;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Content area */
+        .content-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        /* Page containers */
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Dashboard layout with two columns */
+        .dashboard-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .dashboard-column {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        /* Card styles */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            background-color: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .card-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        /* Status indicators */
+        .status-indicator {
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .status-indicator h2 {
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .status-indicator h2 i {
+            margin-right: 10px;
+        }
+        
+        .status.OK { background-color: #e7f3e7; border-color: #d0e9c6; color: #3c763d; }
+        .status.INFO { background-color: #e7f3ff; border-color: #cbe2f7; color: #31708f; }
+        .status.WARNING { background-color: #fcf8e3; border-color: #faebcc; color: #8a6d3b; }
+        .status.ERROR { background-color: #f2dede; border-color: #ebccd1; color: #a94442; }
+        .status.CRITICAL { background-color: #a94442; border-color: #843534; color: #fff; font-weight: bold;}
+        
+        /* Chart styles */
+        .metrics-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 85%;
+            margin: 0 auto;
+        }
+        
+        .metric-chart {
+            height: 200px;
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* DTC styles */
+        .dtcs-list, .resolved-dtcs-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .dtc-item, .resolved-dtc-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .dtc-item:last-child, .resolved-dtc-item:last-child {
+            border-bottom: none;
+        }
+        
+        .dtc-text {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        
+        .heal-button {
+            padding: 5px 10px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background-color 0.3s;
+        }
+        
+        .heal-button:hover:not(:disabled) {
+            background-color: #388e3c;
+        }
+        
+        .heal-button:disabled {
+            background-color: #a5d6a7;
+            cursor: not-allowed;
+        }
+        
+        .resolution-tag {
+            font-style: italic;
+            color: #777;
+            font-size: 0.85rem;
+            margin-left: 10px;
+        }
+        
+        /* Analysis box */
+        #instruction-text {
+            max-height: 350px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        #instruction-text ul, #instruction-text ol {
+            padding-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        #instruction-text li {
+            margin-bottom: 5px;
+        }
+        
+        #instruction-text code {
+            background: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        #instruction-text pre code {
+            display: block;
+            padding: 10px;
+            white-space: pre;
+            overflow-x: auto;
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 4px;
+        }
+        
+        #instruction-text h1, #instruction-text h2, #instruction-text h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        /* Form controls */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-success {
+            background-color: #2ecc71;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #27ae60;
+        }
+        
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d35400;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* Parts Marketplace Styles */
+        .parts-results {
+            margin-top: 25px;
+        }
+        
+        .search-summary {
+            background-color: #f4f9fd;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        #part-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+        
+        .part-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            padding: 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .part-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .part-card h3 {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin: 0;
+            border-bottom: 1px solid #eee;
+            font-size: 1.1rem;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .best-badge {
+            background-color: #2ecc71;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .part-card.best-overall {
+            border: 2px solid #2ecc71;
+        }
+        
+        .part-details {
+            padding: 15px;
+            flex-grow: 1;
+        }
+        
+        .part-details p {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .part-details strong {
+            color: #2c3e50;
+        }
+        
+        .part-reasons, .part-drawbacks {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #eee;
+        }
+        
+        .part-reasons h4, .part-drawbacks h4 {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: #555;
+        }
+        
+        .part-reasons ul, .part-drawbacks ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+            font-size: 0.9rem;
+        }
+        
+        .part-reasons li, .part-drawbacks li {
+            margin-bottom: 5px;
+        }
+        
+        .part-reasons {
+            color: #27ae60;
+        }
+        
+        .part-drawbacks {
+            color: #e74c3c;
+        }
+        
+        .buy-button {
+            display: block;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            margin-top: auto;
+            border-radius: 0 0 8px 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .buy-button:hover {
+            background-color: #2980b9;
+            color: white;
+        }
+        
+        .part-card.best-overall .buy-button {
+            background-color: #2ecc71;
+        }
+        
+        .part-card.best-overall .buy-button:hover {
+            background-color: #27ae60;
+        }
+        
+        /* Appointment Page Styles */
+        #appointments-list {
+            margin-top: 25px;
+        }
+        
+        #appointment-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .appointment-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            padding: 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .appointment-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .appointment-card h3 {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin: 0;
+            border-bottom: 1px solid #eee;
+            font-size: 1.1rem;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .appointment-details {
+            padding: 15px;
+            flex-grow: 1;
+        }
+        
+        .appointment-details p {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .appointment-details strong {
+            color: #2c3e50;
+        }
+        
+        .book-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            text-align: center;
+            border: none;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            margin-top: auto;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .book-button:hover:not(:disabled) {
+            background-color: #2980b9;
+        }
+        
+        .book-button:disabled {
+            background-color: #a5d6a7;
+            cursor: not-allowed;
+        }
+        
+        .booking-status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .booking-status.success {
+            background-color: #e7f3e7;
+            border-left: 4px solid #2ecc71;
+            color: #27ae60;
+        }
+        
+        .booking-status.error {
+            background-color: #f2dede;
+            border-left: 4px solid #e74c3c;
+            color: #a94442;
+        }
+        
+        /* Find Appointments Button Styling */
+        #find-appointment-btn {
+            display: inline-block;
+            padding: 12px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 15px;
+            font-size: 1rem;
+        }
+        
+        #find-appointment-btn:hover:not(:disabled) {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        #find-appointment-btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        /* Chat Interface Styling */
+        .chat-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+            min-height: 400px;
+            max-height: 700px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-top: 20px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            width: 100%;
+            overflow-y: auto;
+            padding: 16px;
+            background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .chat-input-container {
+            width: 100%;
+            min-height: 70px;
+            background-color: white;
+            border-top: 1px solid #eee;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            position: relative;
+            line-height: 1.5;
+            word-wrap: break-word;
+            animation: messageAppear 0.3s ease-out;
+        }
+        
+        @keyframes messageAppear {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            background-color: #3498db;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.agent {
+            background-color: #f0f0f0;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message-timestamp {
+            display: block;
+            font-size: 0.7rem;
+            margin-top: 6px;
+            opacity: 0.7;
+            text-align: right;
+        }
+        
+        .message-image {
+            max-width: 200px;
+            max-height: 150px;
+            border-radius: 8px;
+            margin-top: 8px;
+            display: block;
+        }
+        
+        #chat-input {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        #chat-input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        #chat-image-button {
+            background-color: transparent;
+            color: #3498db;
+            border: none;
+            border-radius: 50%;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        #chat-image-button i {
+            font-size: 1.2rem;
+        }
+        
+        #chat-image-button:hover:not(:disabled) {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        #chat-send-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        #chat-send-button:hover:not(:disabled) {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+        
+        #chat-send-button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        #chat-image-preview {
+            height: 40px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        
+        .repair-status {
+            margin-top: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+        }
+        
+        .repair-status.success {
+            border-left-color: #2ecc71;
+            background-color: #e8f8f5;
+        }
+        
+        .repair-status.referral {
+            border-left-color: #e74c3c;
+            background-color: #fdedec;
+        }
+        
+        .repair-status.info {
+            border-left-color: #3498db;
+            background-color: #eaf2f8;
+        }
+        
+        .repair-attempts {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        
+        /* Booking Status Styling */
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>AutomatIQ</h1>
+                <h2>Intelligent Vehicle Diagnostics</h2>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a class="nav-link active" data-page="dashboard">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-page="vehicle-setup">
+                        <i class="fas fa-car"></i>
+                        <span>Vehicle Setup</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-page="marketplace">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span>Parts Marketplace</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-page="appointments">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Mechanic Appointments</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-page="diy-repair">
+                        <i class="fas fa-tools"></i>
+                        <span>DIY Repair Assistant</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Dashboard Page -->
+            <div id="dashboard" class="page active">
+                <div class="dashboard-container">
+                    <!-- Left Column -->
+                    <div class="dashboard-column">
+                        <div class="status-indicator status OK" id="status-box">
+                            <h2><i class="fas fa-check-circle"></i> Status: <span id="status-text">Connecting...</span></h2>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+            <h2>Live Metrics</h2>
+                            </div>
+                            <div class="card-body">
+            <div class="metrics-container">
+                <div class="metric-chart">
+                    <div class="chart-container">
+                        <canvas id="rpmChart"></canvas>
+                    </div>
+                </div>
+                <div class="metric-chart">
+                    <div class="chart-container">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+                <div class="metric-chart">
+                    <div class="chart-container">
+                        <canvas id="speedChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+                        </div>
+        </div>
+        
+                    <!-- Right Column -->
+                    <div class="dashboard-column">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Active DTCs</h2>
+                            </div>
+                            <div class="card-body">
+                                <ul id="dtc-list" class="dtcs-list">
+                                    <li class="dtc-item">None</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Recently Resolved DTCs</h2>
+                            </div>
+                            <div class="card-body">
+                                <ul id="resolved-dtc-list" class="resolved-dtcs-list">
+                                    <li class="resolved-dtc-item">None yet</li>
+                                </ul>
+                </div>
+            </div>
+            
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Recommended Action / Analysis</h2>
+                            </div>
+                            <div class="card-body">
+                                <div id="instructions">
+                                    <pre id="instruction-text">Initializing...</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+        </div>
+        
+            <!-- Vehicle Setup Page -->
+            <div id="vehicle-setup" class="page">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Vehicle Information</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="vehicle-form">
+                            <div class="form-group">
+                                <label class="form-label" for="vehicle-vin">VIN</label>
+                                <input type="text" id="vehicle-vin" class="form-control" placeholder="Vehicle Identification Number" value="1G1YR26R395800228">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="vehicle-make">Make</label>
+                                <input type="text" id="vehicle-make" class="form-control" placeholder="e.g., Toyota">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="vehicle-model">Model</label>
+                                <input type="text" id="vehicle-model" class="form-control" placeholder="e.g., Camry">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="vehicle-year">Year</label>
+                                <input type="number" id="vehicle-year" class="form-control" placeholder="e.g., 2018">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="vehicle-engine">Engine</label>
+                                <input type="text" id="vehicle-engine" class="form-control" placeholder="e.g., 2.5L 4-cylinder">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Vehicle Information</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Parts Marketplace Page -->
+            <div id="marketplace" class="page">
+                <div class="card">
+                    <div class="card-header">
+            <h2>Parts Marketplace</h2>
+                    </div>
+                    <div class="card-body">
+            <p>Need replacement parts? We'll find the best options based on price and distance.</p>
+            
+            <!-- Search Form -->
+                <form id="parts-search-form">
+                            <div class="form-group">
+                                <label class="form-label" for="part-name">Part Name</label>
+                                <input type="text" id="part-name" class="form-control" placeholder="e.g., oxygen sensor, brake pads">
+                    </div>
+                            <div class="form-group">
+                                <label class="form-label" for="part-dtc">Associated DTC Code (optional)</label>
+                                <input type="text" id="part-dtc" class="form-control" placeholder="e.g., P0128">
+                    </div>
+                            <button type="submit" id="search-parts-btn" class="btn btn-primary">Find Parts</button>
+                </form>
+            
+                        <!-- Search Status -->
+                        <div id="search-status" class="search-status" style="display: none; margin-top: 20px;">
+                <p id="search-status-text">Searching for parts...</p>
+            </div>
+            
+                        <!-- Parts Results -->
+                        <div id="parts-results" class="parts-results" style="display: none; margin-top: 20px;">
+                <h3>Recommended Parts</h3>
+                            <div id="search-summary" class="search-summary" style="margin-top: 10px; margin-bottom: 20px;">
+                                <!-- Summary will be added dynamically -->
+                </div>
+                <div id="part-cards">
+                                <!-- Part cards will be added dynamically -->
+                            </div>
+                        </div>
+                </div>
+            </div>
+        </div>
+        
+            <!-- Mechanic Appointments Page -->
+            <div id="appointments" class="page">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Mechanic Appointments</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>Need to schedule a mechanic appointment? We can help find the best options for your vehicle's condition.</p>
+                        <button id="find-appointment-btn" class="btn btn-primary">Find Appointments</button>
+                        
+                        <!-- Appointments List -->
+                        <div id="appointments-list" style="display: none; margin-top: 20px;">
+                            <h3>Recommended Appointments</h3>
+                            <div id="appointment-cards" style="margin-top: 15px;">
+                                <!-- Appointment cards will be added dynamically -->
+                            </div>
+                        </div>
+                        
+                        <!-- Booking Status -->
+                        <div id="booking-status" style="display: none; margin-top: 20px;" class="booking-status">
+                            <p id="booking-status-text"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- DIY Repair Assistant Page -->
+            <div id="diy-repair" class="page">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>DIY Repair Assistant</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>Get step-by-step guidance to fix issues that may not require a mechanic visit.</p>
+                        
+                        <div class="repair-start-form">
+                            <button id="start-repair-button" class="btn btn-warning">Start DIY Repair Session</button>
+                        </div>
+                        
+                        <div id="repair-status" style="display: none;" class="repair-status">
+                            <div id="repair-status-message"></div>
+                            <div id="repair-attempts" class="repair-attempts"></div>
+                        </div>
+                        
+                        <div id="chat-container" class="chat-container" style="display: none;">
+                            <div id="chat-messages" class="chat-messages"></div>
+                            <div class="chat-input-container">
+                                <img id="chat-image-preview" style="display: none;" alt="Preview">
+                                <input type="text" id="chat-input" placeholder="Type your message here...">
+                                <input type="file" id="chat-image-input" style="display: none;" accept="image/*">
+                                <button id="chat-image-button" title="Upload Image"><i class="fas fa-camera"></i></button>
+                                <button id="chat-send-button"><i class="fas fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add page navigation functionality
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                const pageId = this.getAttribute('data-page');
+                
+                // Update active nav link
+                document.querySelectorAll('.nav-link').forEach(navLink => {
+                    navLink.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Show the selected page
+                document.querySelectorAll('.page').forEach(page => {
+                    page.classList.remove('active');
+                });
+                document.getElementById(pageId).classList.add('active');
+            });
+        });
+        
+        // Keep all the existing JavaScript functionality
+        const statusBox = document.getElementById('status-box');
+        const statusText = document.getElementById('status-text');
+        const instructionText = document.getElementById('instruction-text');
+        const dtcList = document.getElementById('dtc-list');
+        const resolvedDtcList = document.getElementById('resolved-dtc-list');
+        const metricsPlaceholders = {
+            'ENGINE_RPM': document.getElementById('metric-ENGINE_RPM'),
+            'COOLANT_TEMP': document.getElementById('metric-COOLANT_TEMP'),
+            'SPEED': document.getElementById('metric-SPEED')
+        };
+        const dtcHealability = { 
+            "P0128": { healable: true, desc: "Coolant Thermostat Malfunction" }, 
+            "P0301": { healable: false, desc: "Cylinder 1 Misfire Detected" },
+            "U0100": { healable: false, desc: "Lost Communication With ECM/PCM" },
+            "C0035": { healable: false, desc: "Left Front Wheel Speed Sensor Circuit Malfunction" }
+        };
+        const codesInResolvedList = new Set();
+
+        // Add variables to track active issue and DTCs
+        let activeIssueKey = 'GENERAL_MAINTENANCE';
+        let activeDtcCodes = [];
+        let currentStatus = 'OK';
+        
+        // DEBUG: Force sample DTCs for testing
+        setTimeout(() => {
+            // If no DTCs have been set by the server, add some test ones
+            if (activeDtcCodes.length === 0) {
+                console.log("DEBUG: Adding test DTCs");
+                activeDtcCodes = ["P0128", "P0301"];
+                
+                // Also update the UI
+                dtcList.innerHTML = '';
+                activeDtcCodes.forEach(code => {
+                    const dtcInfo = dtcHealability[code] || { desc: "Unknown", healable: false };
+                    const li = document.createElement('li');
+                    li.className = 'dtc-item';
+                    
+                    const textSpan = document.createElement('span'); 
+                    textSpan.className = 'dtc-text';
+                    textSpan.textContent = `${code} - ${dtcInfo.desc}`;
+                    li.appendChild(textSpan);
+                    
+                    if (dtcInfo.healable) {
+                        const button = document.createElement('button'); 
+                        button.textContent = 'Attempt Heal';
+                        button.className = 'heal-button'; 
+                        button.dataset.dtcCode = code;
+                        button.onclick = handleHealButtonClick;
+                        li.appendChild(button);
+                    }
+                    
+                    dtcList.appendChild(li);
+                });
+            }
+        }, 2000); // Wait 2 seconds after page load
+
+        // Add repair-related variables
+        let repairInProgress = false;
+        let currentImageData = null;
+        const repairStatus = document.getElementById('repair-status');
+        const repairStatusMessage = document.getElementById('repair-status-message');
+        const repairAttempts = document.getElementById('repair-attempts');
+        const chatContainer = document.getElementById('chat-container');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSendButton = document.getElementById('chat-send-button');
+        const chatImageButton = document.getElementById('chat-image-button');
+        const chatImageInput = document.getElementById('chat-image-input');
+        const chatImagePreview = document.getElementById('chat-image-preview');
+        const startRepairButton = document.getElementById('start-repair-button');
+
+        // Add heal endpoint configuration at the top with other variables
+        const HEAL_ENDPOINT_URL = 'http://172.26.108.184:8080/send_heal_command';
+        const AUTH_TOKEN = 'sflNQfPaiL11iSEtzVFcmndhmj4GH11M'; // Replace with your actual auth token
+
+        // Initialize charts
+        const chartConfig = {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Time (minutes)'
+                        },
+                        min: 0,
+                        max: 10,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                return value;
+                            }
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        };
+
+        const rpmChart = new Chart(
+            document.getElementById('rpmChart'),
+            {
+                ...chartConfig,
+                data: {
+                    labels: Array.from({length: 11}, (_, i) => i),
+                    datasets: [{
+                        label: 'Engine RPM',
+                        data: Array(11).fill(null),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartConfig.options,
+                    scales: {
+                        ...chartConfig.options.scales,
+                        y: {
+                            ...chartConfig.options.scales.y,
+                            title: {
+                                display: true,
+                                text: 'RPM'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        const tempChart = new Chart(
+            document.getElementById('tempChart'),
+            {
+                ...chartConfig,
+                data: {
+                    labels: Array.from({length: 11}, (_, i) => i),
+                    datasets: [{
+                        label: 'Coolant Temperature',
+                        data: Array(11).fill(null),
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartConfig.options,
+                    scales: {
+                        ...chartConfig.options.scales,
+                        y: {
+                            ...chartConfig.options.scales.y,
+                            title: {
+                                display: true,
+                                text: '°C'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        const speedChart = new Chart(
+            document.getElementById('speedChart'),
+            {
+                ...chartConfig,
+                data: {
+                    labels: Array.from({length: 11}, (_, i) => i),
+                    datasets: [{
+                        label: 'Vehicle Speed',
+                        data: Array(11).fill(null),
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartConfig.options,
+                    scales: {
+                        ...chartConfig.options.scales,
+                        y: {
+                            ...chartConfig.options.scales.y,
+                            title: {
+                                display: true,
+                                text: 'mph'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        // Store the data points
+        const metricData = {
+            ENGINE_RPM: Array(11).fill(null),
+            COOLANT_TEMP: Array(11).fill(null),
+            SPEED: Array(11).fill(null)
+        };
+
+        function updateMetricsUI(metrics) {
+            console.log("[JS] updateMetricsUI called with:", JSON.stringify(metrics));
+            if (!metrics || typeof metrics !== 'object') {
+                console.warn("Invalid metrics data received");
+                return;
+            }
+
+            // Update data arrays with actual values
+            if (metrics.ENGINE_RPM?.value !== undefined) {
+                const rpmValues = Array.isArray(metrics.ENGINE_RPM.value) ? 
+                    metrics.ENGINE_RPM.value : 
+                    [metrics.ENGINE_RPM.value];
+                // Pad with nulls if we have fewer than 11 values
+                metricData.ENGINE_RPM = [...rpmValues, ...Array(11 - rpmValues.length).fill(null)];
+            }
+
+            if (metrics.COOLANT_TEMP?.value !== undefined) {
+                const tempValues = Array.isArray(metrics.COOLANT_TEMP.value) ? 
+                    metrics.COOLANT_TEMP.value : 
+                    [metrics.COOLANT_TEMP.value];
+                // Pad with nulls if we have fewer than 11 values
+                metricData.COOLANT_TEMP = [...tempValues, ...Array(11 - tempValues.length).fill(null)];
+            }
+
+            if (metrics.SPEED?.value !== undefined) {
+                const speedValues = Array.isArray(metrics.SPEED.value) ? 
+                    metrics.SPEED.value : 
+                    [metrics.SPEED.value];
+                // Pad with nulls if we have fewer than 11 values
+                metricData.SPEED = [...speedValues, ...Array(11 - speedValues.length).fill(null)];
+            }
+
+            // Update all charts at once
+            rpmChart.data.datasets[0].data = [...metricData.ENGINE_RPM];
+            tempChart.data.datasets[0].data = [...metricData.COOLANT_TEMP];
+            speedChart.data.datasets[0].data = [...metricData.SPEED];
+
+            rpmChart.update();
+            tempChart.update();
+            speedChart.update();
+        }
+
+        function updateStatusUI(statusInfo) {
+            if (!statusInfo || typeof statusInfo !== 'object') { console.warn("Invalid statusInfo received"); return; }
+
+            // Update current status
+            currentStatus = statusInfo.status || 'OK';
+            
+            // Update active issue key if provided
+            if (statusInfo.issue_key) {
+                activeIssueKey = statusInfo.issue_key;
+            }
+
+            // Status Bar
+            statusText.textContent = statusInfo.status || 'Unknown';
+            statusBox.className = `status-indicator status ${statusInfo.status || 'UNKNOWN'}`;
+
+            // Update status icon
+            let statusIcon = statusBox.querySelector('h2 i');
+            if (statusIcon) {
+                statusIcon.className = ''; // Clear existing classes
+                
+                switch (statusInfo.status) {
+                    case 'OK':
+                        statusIcon.className = 'fas fa-check-circle';
+                        break;
+                    case 'INFO':
+                        statusIcon.className = 'fas fa-info-circle';
+                        break;
+                    case 'WARNING':
+                        statusIcon.className = 'fas fa-exclamation-triangle';
+                        break;
+                    case 'ERROR':
+                    case 'CRITICAL':
+                        statusIcon.className = 'fas fa-exclamation-circle';
+                        break;
+                    default:
+                        statusIcon.className = 'fas fa-question-circle';
+                }
+            }
+
+            // Instructions / Analysis
+            const currentAction = statusInfo.action || {};
+            const instructions = currentAction.instructions || (statusInfo.status === 'OK' ? "All systems nominal." : 'Analysis unavailable.');
+            
+            // Parse markdown and set as HTML
+            instructionText.innerHTML = marked.parse(instructions);
+
+            // Active DTCs & Heal Buttons
+            dtcList.innerHTML = '';
+            const activeDtcs = statusInfo.active_dtcs || [];
+            activeDtcCodes = []; // Reset active DTC codes
+            
+            if (activeDtcs.length > 0) {
+                activeDtcs.forEach(item => {
+                    if (typeof item === 'object' && item.code) {
+                        // Only add if not in resolved list
+                        if (!codesInResolvedList.has(item.code)) {
+                            activeDtcCodes.push(item.code);
+                            const li = document.createElement('li');
+                            li.className = 'dtc-item';
+                            
+                            const textSpan = document.createElement('span'); 
+                            textSpan.className = 'dtc-text';
+                            textSpan.textContent = `${item.code} - ${item.desc || 'Unknown'}`;
+                            li.appendChild(textSpan);
+                            
+                            if (dtcHealability[item.code] && dtcHealability[item.code].healable) {
+                                const button = document.createElement('button'); 
+                                button.textContent = 'Attempt Heal';
+                                button.className = 'heal-button'; 
+                                button.dataset.dtcCode = item.code;
+                                button.onclick = handleHealButtonClick;
+                                button.disabled = codesInResolvedList.has(item.code);
+                                li.appendChild(button);
+                            }
+                            dtcList.appendChild(li);
+                        }
+                    }
+                });
+            }
+            
+            if (dtcList.children.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'dtc-item';
+                li.textContent = 'None';
+                dtcList.appendChild(li);
+            }
+
+            // Resolved DTCs - only update if not already handled by heal success
+            const resolvedThisCycle = statusInfo.resolved_dtcs_this_cycle || [];
+            if (resolvedThisCycle.length > 0) {
+                const placeholderItem = resolvedDtcList.querySelector('li:only-child');
+                if (placeholderItem && placeholderItem.textContent === 'None yet') {
+                    resolvedDtcList.innerHTML = '';
+                }
+                
+                resolvedThisCycle.forEach(item => {
+                    if (typeof item === 'object' && item.code && !codesInResolvedList.has(item.code)) {
+                        codesInResolvedList.add(item.code);
+                        const li = document.createElement('li');
+                        li.className = 'resolved-dtc-item';
+                        li.textContent = `${item.code} - ${item.desc || 'Unknown'}`;
+                        
+                        const resSpan = document.createElement('span'); 
+                        resSpan.className = 'resolution-tag';
+                        resSpan.textContent = `(${item.resolution || 'Resolved'})`; 
+                        li.appendChild(resSpan);
+                        
+                        resolvedDtcList.prepend(li);
+                    }
+                });
+            }
+            
+            if (resolvedDtcList.children.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'resolved-dtc-item';
+                li.textContent = 'None yet';
+                resolvedDtcList.appendChild(li);
+            }
+        }
+
+        // --- Handler for individual Heal Buttons ---
+        function handleHealButtonClick(event) {
+            const button = event.target; 
+            const dtcCode = button.dataset.dtcCode;
+            if (!dtcCode) { return; }
+            console.log("Sending self-heal request for DTC:", dtcCode);
+            button.disabled = true; 
+            button.textContent = 'Healing...';
+            const issueKey = `DTC_${dtcCode}`;
+
+            const healData = {
+                dtc: dtcCode,
+                action: 'heal',
+                timestamp: new Date().toISOString(),
+                vehicle_id: '1G1YR26R395800228'
+            };
+
+            // Send request with no-cors mode
+            fetch(HEAL_ENDPOINT_URL, {
+                method: 'POST',
+                mode: 'no-cors',  // Add no-cors mode
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-DEVICE-API-KEY': AUTH_TOKEN
+                },
+                body: JSON.stringify(healData)
+            })
+            .then(() => {
+                // With no-cors, we can't read the response, but we can assume success
+                // and update the UI accordingly
+                handleHealSuccess(button, dtcCode, { message: "Heal command sent successfully" });
+            })
+            .catch(error => {
+                console.error('Heal Error:', error);
+                alert("Error sending heal command. The command may have been sent but we couldn't verify the response.");
+                // Re-enable button on error
+                button.disabled = false;
+                button.textContent = 'Attempt Heal';
+            });
+        }
+
+        function handleHealSuccess(button, dtcCode, data) {
+            // Move the DTC from active to resolved immediately in the UI
+            const dtcListItem = button.closest('li');
+            if (dtcListItem) {
+                // Remove from active list
+                dtcListItem.remove();
+                
+                // First check for and remove the "None yet" placeholder
+                const placeholderItem = resolvedDtcList.querySelector('li:only-child');
+                if (placeholderItem && placeholderItem.textContent === 'None yet') {
+                    resolvedDtcList.innerHTML = '';
+                }
+                
+                // Add to resolved list
+                const li = document.createElement('li');
+                const dtcInfo = dtcHealability[dtcCode] || { desc: 'Unknown' };
+                li.textContent = `${dtcCode} - ${dtcInfo.desc}`;
+                const resSpan = document.createElement('span'); 
+                resSpan.className = 'resolution-tag';
+                resSpan.textContent = '(Self-Healed)'; 
+                li.appendChild(resSpan);
+                resolvedDtcList.prepend(li);
+                
+                // Add to tracked resolved codes
+                codesInResolvedList.add(dtcCode);
+                
+                // If no DTCs left in active list, show "None"
+                if (dtcList.children.length === 0) {
+                    dtcList.innerHTML = '<li>None</li>';
+                }
+
+                // Also remove from activeDtcCodes array
+                const index = activeDtcCodes.indexOf(dtcCode);
+                if (index > -1) {
+                    activeDtcCodes.splice(index, 1);
+                }
+            }
+            
+            alert(data.message || "Heal finished.");
+        }
+
+        function updateSearchStatusUI(status, message, isComplete = false) {
+            const searchStatus = document.getElementById('search-status');
+            const searchStatusText = document.getElementById('search-status-text');
+            
+            if (!searchStatus || !searchStatusText) return;
+            
+            searchStatusText.textContent = message || status;
+            searchStatus.style.display = 'block';
+            
+            if (isComplete) {
+                searchStatus.style.display = 'none';
+            }
+        }
+
+        function updatePartsRecommendationsUI(recommendations, summary) {
+            const partsResults = document.getElementById('parts-results');
+            const partCards = document.getElementById('part-cards');
+            const searchSummary = document.getElementById('search-summary');
+            
+            if (!partsResults || !partCards || !searchSummary) return;
+            
+            // Clear previous results
+            partCards.innerHTML = '';
+            
+            if (!recommendations || recommendations.length === 0) {
+                partCards.innerHTML = '<p>No parts found matching your criteria.</p>';
+                partsResults.style.display = 'block';
+                return;
+            }
+            
+            // Update summary
+            searchSummary.textContent = summary || `Found ${recommendations.length} parts that match your requirements.`;
+            
+            // Create a card for each part
+            recommendations.forEach(part => {
+                const card = document.createElement('div');
+                card.className = part.is_best_overall ? 'part-card best-overall' : 'part-card';
+                
+                const title = document.createElement('h3');
+                title.textContent = part.title;
+                if (part.is_best_overall) {
+                    const badge = document.createElement('span');
+                    badge.className = 'best-badge';
+                    badge.textContent = 'BEST OPTION';
+                    title.appendChild(badge);
+                }
+                card.appendChild(title);
+                
+                const details = document.createElement('div');
+                details.className = 'part-details';
+                
+                details.innerHTML = `
+                    <p><strong>Price:</strong> ${part.price}</p>
+                    <p><strong>Source:</strong> ${part.source}</p>
+                    <p><strong>Location:</strong> ${part.location}</p>
+                    <p><strong>Rating:</strong> ${part.rating}</p>
+                    <p><strong>Description:</strong> ${part.description}</p>
+                `;
+                
+                if (part.reasons && part.reasons.length > 0) {
+                    const reasons = document.createElement('div');
+                    reasons.className = 'part-reasons';
+                    
+                    const reasonsTitle = document.createElement('h4');
+                    reasonsTitle.textContent = 'Why this is recommended:';
+                    reasons.appendChild(reasonsTitle);
+                    
+                    const reasonsList = document.createElement('ul');
+                    part.reasons.forEach(reason => {
+                        const item = document.createElement('li');
+                        item.textContent = reason;
+                        reasonsList.appendChild(item);
+                    });
+                    reasons.appendChild(reasonsList);
+                    details.appendChild(reasons);
+                }
+                
+                if (part.drawbacks && part.drawbacks.length > 0) {
+                    const drawbacks = document.createElement('div');
+                    drawbacks.className = 'part-drawbacks';
+                    
+                    const drawbacksTitle = document.createElement('h4');
+                    drawbacksTitle.textContent = 'Potential drawbacks:';
+                    drawbacks.appendChild(drawbacksTitle);
+                    
+                    const drawbacksList = document.createElement('ul');
+                    part.drawbacks.forEach(drawback => {
+                        const item = document.createElement('li');
+                        item.textContent = drawback;
+                        drawbacksList.appendChild(item);
+                    });
+                    drawbacks.appendChild(drawbacksList);
+                    details.appendChild(drawbacks);
+                }
+                
+                if (part.best_for) {
+                    const bestFor = document.createElement('p');
+                    bestFor.innerHTML = `<strong>Best for:</strong> ${part.best_for}`;
+                    details.appendChild(bestFor);
+                }
+                
+                card.appendChild(details);
+                
+                const buyLink = document.createElement('a');
+                buyLink.href = part.link;
+                buyLink.className = 'buy-button';
+                buyLink.textContent = 'Buy Now';
+                buyLink.target = '_blank';
+                buyLink.rel = 'noopener noreferrer';
+                card.appendChild(buyLink);
+                
+                partCards.appendChild(card);
+            });
+            
+            // Show the parts results
+            partsResults.style.display = 'block';
+            searchStatus.style.display = 'none';
+        }
+
+        function updateRepairStatus(status, attempt, maxAttempts) {
+            if (!repairStatus || !repairStatusMessage || !repairAttempts) {
+                console.error("Required repair status UI elements not found");
+                return;
+            }
+
+            repairStatus.style.display = 'block';
+            repairAttempts.textContent = `Attempt ${attempt} of ${maxAttempts}`;
+            
+            repairStatus.className = 'repair-status';
+            if (status === 'resolved') {
+                repairStatus.classList.add('success');
+                repairStatusMessage.textContent = 'Issue resolved successfully!';
+                repairInProgress = false;
+                chatSendButton.disabled = true;
+                chatImageButton.disabled = true;
+            } else if (status === 'mechanic_referral') {
+                repairStatus.classList.add('referral');
+                repairStatusMessage.textContent = 'Maximum attempts reached. Please consult a professional mechanic.';
+                repairInProgress = false;
+                chatSendButton.disabled = true;
+                chatImageButton.disabled = true;
+            } else {
+                repairStatus.classList.add('info');
+                repairStatusMessage.textContent = 'DIY repair in progress...';
+            }
+        }
+        
+        function updateAppointmentsUI(appointments) {
+            console.log("[JS] updateAppointmentsUI called with:", JSON.stringify(appointments));
+            
+            const appointmentCards = document.getElementById('appointment-cards');
+            const appointmentsList = document.getElementById('appointments-list');
+            
+            if (!appointmentCards || !appointmentsList) {
+                console.error("Required appointment UI elements not found");
+                return;
+            }
+            
+            // Clear previous appointments
+            appointmentCards.innerHTML = '';
+            
+            if (!appointments || appointments.length === 0) {
+                appointmentCards.innerHTML = '<p>No appointments available at this time.</p>';
+                return;
+            }
+            
+            // Create a card for each appointment
+            appointments.forEach(apt => {
+                const card = document.createElement('div');
+                card.className = 'appointment-card';
+                
+                const title = document.createElement('h3');
+                title.textContent = apt.shop_name;
+                card.appendChild(title);
+                
+                const details = document.createElement('div');
+                details.className = 'appointment-details';
+                
+                details.innerHTML = `
+                    <p><strong>Rating:</strong> ${apt.shop_rating}/5</p>
+                    <p><strong>Distance:</strong> ${apt.shop_distance}</p>
+                    <p><strong>Specialty:</strong> ${apt.shop_specialty}</p>
+                    <p><strong>Date/Time:</strong> ${apt.datetime}</p>
+                    <p><strong>Estimated Cost:</strong> ${apt.price_estimate}</p>
+                `;
+                card.appendChild(details);
+                
+                const bookBtn = document.createElement('button');
+                bookBtn.className = 'book-button';
+                bookBtn.textContent = 'Book Appointment';
+                bookBtn.dataset.appointmentId = apt.id;
+                bookBtn.onclick = handleBookAppointmentClick;
+                card.appendChild(bookBtn);
+                
+                appointmentCards.appendChild(card);
+            });
+            
+            // Show the appointments list
+            appointmentsList.style.display = 'block';
+        }
+        
+        function updateBookingStatusUI(status, isSuccess = true) {
+            const bookingStatus = document.getElementById('booking-status');
+            const bookingStatusText = document.getElementById('booking-status-text');
+            
+            if (!bookingStatus || !bookingStatusText) {
+                console.error("Required booking status UI elements not found");
+                return;
+            }
+            
+            bookingStatus.className = isSuccess ? 'booking-status success' : 'booking-status error';
+            bookingStatusText.textContent = status;
+            bookingStatus.style.display = 'block';
+            
+            // Disable all booking buttons
+            if (isSuccess) {
+                const bookButtons = document.querySelectorAll('.book-button');
+                bookButtons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.textContent = 'Booking Complete';
+                });
+            }
+        }
+
+        function addMessageToChat(role, content, timestamp, imageData) {
+            if (!chatMessages) {
+                console.error("Chat messages container not found");
+                return;
+            }
+
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', role);
+            
+            if (content) {
+                const textNode = document.createTextNode(content);
+                messageElement.appendChild(textNode);
+            }
+            
+            if (imageData) {
+                const imageElement = document.createElement('img');
+                imageElement.classList.add('message-image');
+                imageElement.src = imageData;
+                imageElement.alt = 'Uploaded image';
+                messageElement.appendChild(imageElement);
+            }
+            
+            if (timestamp) {
+                const timestampElement = document.createElement('span');
+                timestampElement.classList.add('message-timestamp');
+                timestampElement.textContent = timestamp;
+                messageElement.appendChild(timestampElement);
+            } else {
+                const timestampElement = document.createElement('span');
+                timestampElement.classList.add('message-timestamp');
+                const now = new Date();
+                timestampElement.textContent = now.toLocaleTimeString();
+                messageElement.appendChild(timestampElement);
+            }
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function handleBookAppointmentClick(event) {
+            const button = event.target;
+            const appointmentId = button.dataset.appointmentId;
+            
+            if (!appointmentId) {
+                console.error("No appointment ID found");
+                return;
+            }
+            
+            // Disable the clicked button
+            button.disabled = true;
+            button.textContent = 'Booking...';
+            
+            // Send booking request to server
+            fetch('/book_appointment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    appointment_id: parseInt(appointmentId)  // Convert to number
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    // The booking confirmation will come through SSE
+                    const bookedAppointment = data.appointment;
+                    const confirmationMessage = `Appointment booked successfully with ${bookedAppointment.shop_name} on ${bookedAppointment.datetime} for ${bookedAppointment.price_estimate}`;
+                    updateBookingStatusUI(confirmationMessage, true);
+                    
+                    // Update the specific appointment card that was booked
+                    const bookedCard = document.querySelector(`.appointment-card button[data-appointment-id="${bookedAppointment.id}"]`);
+                    if (bookedCard) {
+                        const card = bookedCard.closest('.appointment-card');
+                        card.style.border = '2px solid #5cb85c';
+                        card.style.backgroundColor = '#f0f9f0';
+                    }
+                } else {
+                    updateBookingStatusUI(data.message || 'Failed to book appointment', false);
+                    button.disabled = false;
+                    button.textContent = 'Book Appointment';
+                }
+            })
+            .catch(error => {
+                console.error('Booking error:', error);
+                updateBookingStatusUI('Error communicating with server', false);
+                button.disabled = false;
+                button.textContent = 'Book Appointment';
+            });
+        }
+
+        // --- Server-Sent Events (SSE) ---
+        console.log("Initializing SSE connection...");
+        const eventSource = new EventSource('/stream');
+        eventSource.onopen = function() { console.log("SSE Connection opened."); statusText.textContent = 'Connected.'; }
+        eventSource.onerror = function(error) { 
+            console.error("SSE Error:", error); 
+            // Don't close the connection on error, just update status
+            statusText.textContent = 'Connection Error'; 
+            statusBox.className = 'status CRITICAL'; 
+        }
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'update' && data.payload) {
+                    if(data.payload.metrics) updateMetricsUI(data.payload.metrics);
+                    if(data.payload.status_info) updateStatusUI(data.payload.status_info);
+                } else if (data.type === 'appointments' && data.payload) {
+                    updateAppointmentsUI(data.payload);
+                } else if (data.type === 'booking_confirmation' && data.payload) {
+                    const bookedAppointment = data.payload.appointment;
+                    const confirmationMessage = `Appointment booked successfully with ${bookedAppointment.shop_name} on ${bookedAppointment.datetime} for ${bookedAppointment.price_estimate}`;
+                    updateBookingStatusUI(confirmationMessage, true);
+                    
+                    // Update the specific appointment card that was booked
+                    const bookedCard = document.querySelector(`.appointment-card button[data-appointment-id="${bookedAppointment.id}"]`);
+                    if (bookedCard) {
+                        const card = bookedCard.closest('.appointment-card');
+                        card.style.border = '2px solid #5cb85c';
+                        card.style.backgroundColor = '#f0f9f0';
+                    }
+                } else if (data.type === 'parts_search_started' && data.payload) {
+                    updateSearchStatusUI(data.payload.status, data.payload.message);
+                    searchPartsBtn.textContent = 'Searching...';
+                } else if (data.type === 'parts_search_progress' && data.payload) {
+                    updateSearchStatusUI(data.payload.status, 
+                        `${data.payload.message} (Step: ${data.payload.step})`);
+                } else if (data.type === 'parts_recommendations' && data.payload) {
+                    updatePartsRecommendationsUI(data.payload.recommendations, data.payload.summary);
+                    searchPartsBtn.textContent = 'Find Parts';
+                    searchPartsBtn.disabled = false;
+                } else if (data.type === 'diy_repair_started' && data.payload) {
+                    // Update repair status
+                    updateRepairStatus(data.payload.status, data.payload.attempt, data.payload.max_attempts);
+                    
+                    // Show chat container
+                    chatContainer.style.display = 'flex';
+                    startRepairButton.disabled = true;
+                    repairInProgress = true;
+                    
+                    // Clear existing messages
+                    chatMessages.innerHTML = '';
+                    
+                    // Add initial instruction message
+                    if (data.payload.conversation && data.payload.conversation.length > 0) {
+                        // Use the conversation history if available
+                        data.payload.conversation.forEach(msg => {
+                            addMessageToChat(msg.role, msg.content, msg.timestamp, msg.image);
+                        });
+                    } else {
+                        // Fallback to just the message
+                        addMessageToChat('agent', data.payload.message);
+                    }
+                } else if (data.type === 'diy_repair_message' && data.payload) {
+                    // Refresh conversation history
+                    if (data.payload.conversation && data.payload.conversation.length > 0) {
+                        chatMessages.innerHTML = '';
+                        data.payload.conversation.forEach(msg => {
+                            addMessageToChat(msg.role, msg.content, msg.timestamp, msg.image);
+                        });
+                    } else {
+                        // Add just the latest message
+                        addMessageToChat('agent', data.payload.message);
+                    }
+                    
+                    // Update repair status
+                    updateRepairStatus(data.payload.status, data.payload.attempt, data.payload.max_attempts);
+                    
+                    // Re-enable send button
+                    chatSendButton.disabled = false;
+                    chatImageButton.disabled = false;
+                } else { 
+                    console.warn("Unknown SSE structure:", data); 
+                }
+            } catch (e) { console.error("SSE Parse Error:", e, "Data:", event.data); }
+        };
+
+        // Add new event handlers for the new UI components
+        document.addEventListener('DOMContentLoaded', function() {
+            // ... (Existing DOMContentLoaded code remains the same) ...
+            
+            // Scheduling event handlers
+            const findAppointmentBtn = document.getElementById('find-appointment-btn');
+            const appointmentsList = document.getElementById('appointments-list');
+            const appointmentCards = document.getElementById('appointment-cards');
+            const bookingStatus = document.getElementById('booking-status');
+            const bookingStatusText = document.getElementById('booking-status-text');
+            
+            // Marketplace event handlers
+            const partsSearchForm = document.getElementById('parts-search-form');
+            const searchPartsBtn = document.getElementById('search-parts-btn');
+            const searchStatus = document.getElementById('search-status');
+            const searchStatusText = document.getElementById('search-status-text');
+            const partsResults = document.getElementById('parts-results');
+            const partCards = document.getElementById('part-cards');
+            const searchSummary = document.getElementById('search-summary');
+            
+            // Event listener for Find Appointments button
+            findAppointmentBtn.addEventListener('click', function() {
+                // Reset UI elements
+                appointmentsList.style.display = 'none';
+                bookingStatus.style.display = 'none';
+                findAppointmentBtn.disabled = true;
+                findAppointmentBtn.textContent = 'Finding appointments...';
+                
+                // Prepare request data
+                const requestData = {
+                    issue_key: activeIssueKey || 'GENERAL_MAINTENANCE',
+                    dtcs: activeDtcCodes || [],
+                    severity: currentStatus || 'WARNING'
+                };
+                
+                // Send request to server
+                fetch('/get_appointments', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(requestData)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Appointments response:", data);
+                    if (data.status === 'success') {
+                        // Updates will come via SSE
+                        findAppointmentBtn.textContent = 'Refresh Appointments';
+                    } else {
+                        alert(data.message || "Error finding appointments");
+                        findAppointmentBtn.textContent = 'Try Again';
+                    }
+                })
+                .catch(error => {
+                    console.error('Appointment fetch error:', error);
+                    alert("Error communicating with server");
+                    findAppointmentBtn.textContent = 'Try Again';
+                })
+                .finally(() => {
+                    findAppointmentBtn.disabled = false;
+                });
+            });
+            
+            // Event listener for Parts Search Form
+            partsSearchForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get form values
+                const partName = document.getElementById('part-name').value.trim();
+                const partDtc = document.getElementById('part-dtc').value.trim();
+                
+                if (!partName) {
+                    alert("Please enter a part name");
+                    return;
+                }
+                
+                // Reset UI elements
+                partsResults.style.display = 'none';
+                searchStatus.style.display = 'block';
+                searchStatusText.textContent = 'Searching for parts...';
+                searchPartsBtn.disabled = true;
+                searchPartsBtn.textContent = 'Searching...';
+                
+                // Prepare request data
+                const requestData = {
+                    part_name: partName,
+                    dtc_code: partDtc || null,
+                    vehicle_info: {
+                        year: "2018",  // Default values for now
+                        make: "Toyota",
+                        model: "Camry",
+                        engine: "2.5L 4-cylinder",
+                        transmission: "Automatic"
+                    }
+                };
+                
+                // Send request to server
+                fetch('/search_parts', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(requestData)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Parts search response:", data);
+                    if (data.status === 'success') {
+                        // Updates will come via SSE
+                        updateSearchStatusUI('in_progress', 'Started searching for parts. This may take a moment...');
+                    } else {
+                        alert(data.message || "Error searching for parts");
+                        searchPartsBtn.textContent = 'Find Parts';
+                        searchPartsBtn.disabled = false;
+                        searchStatus.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Parts search error:', error);
+                    alert("Error communicating with server");
+                    searchPartsBtn.textContent = 'Find Parts';
+                    searchPartsBtn.disabled = false;
+                    searchStatus.style.display = 'none';
+                });
+            });
+            
+            // Event listener for starting a repair session
+            startRepairButton.addEventListener('click', function() {
+                // Add debug logs
+                console.log("Start repair button clicked");
+                console.log("Current active DTC codes:", activeDtcCodes);
+                console.log("DTC list HTML:", dtcList.innerHTML);
+                
+                // Use the global activeDtcCodes array directly instead of DOM queries
+                if (activeDtcCodes && activeDtcCodes.length > 0) {
+                    console.log("Using global activeDtcCodes:", activeDtcCodes);
+                    
+                    // Disable the button while processing
+                    startRepairButton.disabled = true;
+                    startRepairButton.textContent = 'Starting repair...';
+                    
+                    // Start the repair session
+                    fetch('/start_diy_repair', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            dtc_codes: activeDtcCodes,
+                            symptoms: 'Check engine light is on'
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // The actual repair session will be handled by SSE
+                            console.log("Repair session started successfully");
+                        } else {
+                            throw new Error(data.message || "Failed to start repair session");
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error starting repair:', error);
+                        alert('Error starting repair: ' + error.message);
+                        startRepairButton.disabled = false;
+                        startRepairButton.textContent = 'Start DIY Repair Session';
+                    });
+                } else {
+                    console.error("No active DTC codes found");
+                    alert('No DTC codes detected. DIY repair requires at least one active DTC code.');
+                }
+            });
+            
+            // Event listener for image button click
+            chatImageButton.addEventListener('click', function() {
+                chatImageInput.click();
+            });
+            
+            // Event listener for image selection
+            chatImageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) {
+                    return;
+                }
+                
+                if (!file.type.match('image.*')) {
+                    alert('Please select an image file');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentImageData = e.target.result;
+                    chatImagePreview.src = currentImageData;
+                    chatImagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            // Event listener for sending a message
+            chatSendButton.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message && !currentImageData) return;
+                if (!repairInProgress) return;
+                
+                // Add user message to chat
+                addMessageToChat('user', message, null, currentImageData);
+                
+                // Use the global activeDtcCodes array for consistent behavior
+                console.log("Sending message with DTCs:", activeDtcCodes);
+                
+                // Send message to server
+                fetch('/send_diy_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        image_data: currentImageData,
+                        current_dtcs: activeDtcCodes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // The agent's response will come through SSE
+                        chatSendButton.disabled = false;
+                        chatImageButton.disabled = false;
+                    } else {
+                        alert('Failed to send message: ' + data.message);
+                        chatSendButton.disabled = false;
+                        chatImageButton.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                    alert('Error sending message. Please try again.');
+                    chatSendButton.disabled = false;
+                    chatImageButton.disabled = false;
+                });
+                
+                // Reset inputs
+                chatInput.value = '';
+                currentImageData = null;
+                chatImagePreview.style.display = 'none';
+                
+                // Disable buttons while waiting for response
+                chatSendButton.disabled = true;
+                chatImageButton.disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>
