@@ -1,0 +1,1533 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CANary AI Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* ... (Styles remain the same) ... */
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        .metrics, .status, .action, .dtcs, .resolved-dtcs { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .metrics span { display: inline-block; min-width: 150px; font-weight: bold; }
+        .status.OK { background-color: #e7f3e7; border-color: #d0e9c6; color: #3c763d; } /* Styles for status */
+        .status.INFO { background-color: #e7f3ff; border-color: #cbe2f7; color: #31708f; }
+        .status.WARNING { background-color: #fcf8e3; border-color: #faebcc; color: #8a6d3b; }
+        .status.ERROR { background-color: #f2dede; border-color: #ebccd1; color: #a94442; }
+        .status.CRITICAL { background-color: #a94442; border-color: #843534; color: #fff; font-weight: bold;}
+        .action { background-color: #f0f0f0; }
+        .dtcs ul, .resolved-dtcs ul { padding-left: 0; margin: 5px 0 0 0; list-style: none; }
+        .dtcs li, .resolved-dtcs li { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding: 3px 5px; border-bottom: 1px dotted #eee; }
+        .dtcs li:last-child, .resolved-dtcs li:last-child { border-bottom: none; }
+        .dtc-text { flex-grow: 1; margin-right: 10px; }
+        .heal-button-dtc { padding: 2px 6px; font-size: 0.8em; background-color: #77dd77; color: #333; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; margin-left: auto; white-space: nowrap; }
+        .heal-button-dtc:disabled { background-color: #ddd; color: #999; cursor: not-allowed; }
+        .heal-button-dtc:hover:not(:disabled) { background-color: #66cc66; }
+        .resolved-dtcs { background-color: #f5f5f5; border-color: #e3e3e3; }
+        .resolved-dtcs li { color: #777; }
+        .resolved-dtcs .resolution-tag { font-style: italic; color: #555; margin-left: 8px; font-size: 0.9em; }
+        pre { background: #eee; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; }
+        .metrics-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .metric-chart {
+            height: 200px;
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            position: relative;
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Appointment scheduling styles */
+        .scheduling {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f8f8;
+        }
+        .scheduling h2 {
+            margin-top: 0;
+        }
+        .schedule-button {
+            padding: 6px 12px;
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .schedule-button:hover {
+            background-color: #3a80d2;
+        }
+        .schedule-button:disabled {
+            background-color: #a0c4f0;
+            cursor: not-allowed;
+        }
+        .appointments-list {
+            margin-top: 15px;
+            display: none;
+        }
+        .appointment-card {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .appointment-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .appointment-details {
+            margin-bottom: 10px;
+        }
+        .appointment-details p {
+            margin: 5px 0;
+        }
+        .book-button {
+            padding: 5px 10px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .book-button:hover {
+            background-color: #4cae4c;
+        }
+        .book-button:disabled {
+            background-color: #a3d7a3;
+            cursor: not-allowed;
+        }
+        .booking-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .booking-status.success {
+            background-color: #dff0d8;
+            border: 1px solid #d6e9c6;
+            color: #3c763d;
+        }
+        .booking-status.error {
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            color: #a94442;
+        }
+        
+        /* Marketplace styles */
+        .marketplace {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f0f7ff;
+        }
+        .marketplace h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .search-form {
+            margin-top: 15px;
+        }
+        .search-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .search-form input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .search-button {
+            padding: 6px 12px;
+            background-color: #5bc0de;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .search-button:hover {
+            background-color: #46b8da;
+        }
+        .search-button:disabled {
+            background-color: #a8d8e6;
+            cursor: not-allowed;
+        }
+        .search-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f5f5f5;
+            display: none;
+        }
+        .parts-results {
+            margin-top: 15px;
+            display: none;
+        }
+        .part-card {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .part-card.best-overall {
+            border: 2px solid #5cb85c;
+        }
+        .best-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background-color: #5cb85c;
+            color: white;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .part-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .part-details {
+            margin-bottom: 10px;
+        }
+        .part-details p {
+            margin: 5px 0;
+        }
+        .part-reasons, .part-drawbacks {
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        .part-reasons h4, .part-drawbacks h4 {
+            margin-top: 0;
+            margin-bottom: 5px;
+            font-size: 1em;
+        }
+        .part-reasons ul, .part-drawbacks ul {
+            margin-top: 0;
+            padding-left: 20px;
+        }
+        .buy-button {
+            padding: 5px 10px;
+            background-color: #f0ad4e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 10px;
+            text-decoration: none;
+        }
+        .buy-button:hover {
+            background-color: #ec971f;
+            text-decoration: none;
+            color: white;
+        }
+        .search-summary {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            font-style: italic;
+        }
+        
+        /* DIY Repair Chat styles */
+        .diy-repair {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fffaf0; /* Soft ivory color for repair section */
+        }
+        .diy-repair h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .repair-start-form {
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        .repair-start-button {
+            padding: 6px 12px;
+            background-color: #ff9800; /* Orange for repair action */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .repair-start-button:hover {
+            background-color: #f57c00;
+        }
+        .repair-start-button:disabled {
+            background-color: #ffcc80;
+            cursor: not-allowed;
+        }
+        .chat-container {
+            margin-top: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            display: none; /* Hidden initially */
+        }
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #fff;
+        }
+        .chat-input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #e0e0e0;
+            background-color: #f9f9f9;
+        }
+        .chat-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .chat-send-button, .chat-image-button {
+            padding: 8px 16px;
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .chat-send-button:hover, .chat-image-button:hover {
+            background-color: #f57c00;
+        }
+        .chat-send-button:disabled, .chat-image-button:disabled {
+            background-color: #ffcc80;
+            cursor: not-allowed;
+        }
+        .chat-image-input {
+            display: none;
+        }
+        .chat-image-button {
+            background-color: #4a90e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-image-button:hover {
+            background-color: #3a80d2;
+        }
+        .chat-image-preview {
+            height: 40px;
+            width: 40px;
+            border-radius: 4px;
+            object-fit: cover;
+            margin-right: 5px;
+            display: none;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .message.user {
+            align-self: flex-end;
+            background-color: #e3f2fd;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        .message.agent {
+            align-self: flex-start;
+            background-color: #f1f1f1;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        .message-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 8px;
+            display: block;
+        }
+        .message-timestamp {
+            font-size: 0.7em;
+            color: #999;
+            display: block;
+            margin-top: 5px;
+        }
+        .repair-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .repair-status.success {
+            background-color: #dff0d8;
+            border: 1px solid #d6e9c6;
+            color: #3c763d;
+        }
+        .repair-status.error {
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            color: #a94442;
+        }
+        .repair-status.referral {
+            background-color: #fcf8e3;
+            border: 1px solid #faebcc;
+            color: #8a6d3b;
+        }
+        .repair-attempts {
+            font-size: 0.9em;
+            color: #777;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CANary AI Dashboard</h1>
+        <div class="status OK" id="status-box"><h2>Status: <span id="status-text">Connecting...</span></h2></div>
+        <div class="metrics">
+            <h2>Live Metrics</h2>
+            <div class="metrics-container">
+                <div class="metric-chart">
+                    <div class="chart-container">
+                        <canvas id="rpmChart"></canvas>
+                    </div>
+                </div>
+                <div class="metric-chart">
+                    <div class="chart-container">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+                <div class="metric-chart">
+                    <div class="chart-container">
+                        <canvas id="speedChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="dtcs"><h2>Active DTCs</h2><ul id="dtc-list"><li>None</li></ul></div>
+        <div class="resolved-dtcs"><h2>Recently Resolved DTCs</h2><ul id="resolved-dtc-list"><li>None yet</li></ul></div>
+        <div class="action">
+            <h2>Recommended Action / Analysis</h2>
+            <div id="instructions"><h3>Instructions:</h3><pre id="instruction-text">Initializing...</pre></div>
+        </div>
+        
+        <!-- Scheduling Section -->
+        <div class="scheduling">
+            <h2>Mechanic Appointments</h2>
+            <p>Need to schedule a mechanic appointment? We can help find the best options for your vehicle's condition.</p>
+            <button id="find-appointment-btn" class="schedule-button">Find Appointments</button>
+            
+            <!-- Appointments List - Hidden by default -->
+            <div id="appointments-list" class="appointments-list">
+                <h3>Recommended Appointments</h3>
+                <div id="appointment-cards">
+                    <!-- Appointment cards will be added here dynamically -->
+                </div>
+            </div>
+            
+            <!-- Booking Status - Hidden by default -->
+            <div id="booking-status" class="booking-status">
+                <p id="booking-status-text"></p>
+            </div>
+        </div>
+        
+        <!-- Marketplace Section -->
+        <div class="marketplace">
+            <h2>Parts Marketplace</h2>
+            <p>Need replacement parts? We'll find the best options based on price and distance.</p>
+            
+            <!-- Search Form -->
+            <div class="search-form">
+                <form id="parts-search-form">
+                    <div>
+                        <label for="part-name">Part Name:</label>
+                        <input type="text" id="part-name" name="part-name" placeholder="e.g., oxygen sensor, brake pads">
+                    </div>
+                    <div>
+                        <label for="part-dtc">Associated DTC Code (optional):</label>
+                        <input type="text" id="part-dtc" name="part-dtc" placeholder="e.g., P0128">
+                    </div>
+                    <button type="submit" id="search-parts-btn" class="search-button">Find Parts</button>
+                </form>
+            </div>
+            
+            <!-- Search Status - Hidden by default -->
+            <div id="search-status" class="search-status">
+                <p id="search-status-text">Searching for parts...</p>
+            </div>
+            
+            <!-- Parts Results - Hidden by default -->
+            <div id="parts-results" class="parts-results">
+                <h3>Recommended Parts</h3>
+                <div id="search-summary" class="search-summary">
+                    <!-- Summary will be added here dynamically -->
+                </div>
+                <div id="part-cards">
+                    <!-- Part cards will be added here dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- DIY Repair Section -->
+        <div class="diy-repair">
+            <h2>DIY Repair Assistant</h2>
+            <p>Get step-by-step guidance to fix issues that may not require a mechanic visit.</p>
+            
+            <div class="repair-start-form">
+                <button id="start-repair-button" class="repair-start-button">Start DIY Repair Session</button>
+            </div>
+            
+            <div id="chat-container" class="chat-container">
+                <div id="chat-messages" class="chat-messages"></div>
+                <div class="chat-input-container">
+                    <img id="chat-image-preview" class="chat-image-preview" alt="Preview">
+                    <input type="text" id="chat-input" class="chat-input" placeholder="Type your message here...">
+                    <input type="file" id="chat-image-input" class="chat-image-input" accept="image/*">
+                    <button id="chat-image-button" class="chat-image-button" title="Upload Image">📷</button>
+                    <button id="chat-send-button" class="chat-send-button">Send</button>
+                </div>
+            </div>
+            
+            <div id="repair-status" class="repair-status">
+                <div id="repair-status-message"></div>
+                <div id="repair-attempts" class="repair-attempts"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const statusBox = document.getElementById('status-box');
+        const statusText = document.getElementById('status-text');
+        const instructionText = document.getElementById('instruction-text');
+        const dtcList = document.getElementById('dtc-list');
+        const resolvedDtcList = document.getElementById('resolved-dtc-list');
+        const metricsPlaceholders = {
+            'ENGINE_RPM': document.getElementById('metric-ENGINE_RPM'),
+            'COOLANT_TEMP': document.getElementById('metric-COOLANT_TEMP'),
+            'SPEED': document.getElementById('metric-SPEED')
+        };
+        const dtcHealability = { 
+            "P0128": { healable: true, desc: "Coolant Thermostat Malfunction" }, 
+            "P0301": { healable: false, desc: "Cylinder 1 Misfire Detected" },
+            "U0100": { healable: false, desc: "Lost Communication With ECM/PCM" },
+            "C0035": { healable: false, desc: "Left Front Wheel Speed Sensor Circuit Malfunction" }
+        };
+        const codesInResolvedList = new Set();
+        
+        // Add variables to track active issue and DTCs
+        let activeIssueKey = 'GENERAL_MAINTENANCE';
+        let activeDtcCodes = [];
+        let currentStatus = 'OK';
+
+        // Add repair-related variables
+        let repairInProgress = false;
+        let currentImageData = null;
+        const repairStatus = document.getElementById('repair-status');
+        const repairStatusMessage = document.getElementById('repair-status-message');
+        const repairAttempts = document.getElementById('repair-attempts');
+        const chatContainer = document.getElementById('chat-container');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSendButton = document.getElementById('chat-send-button');
+        const chatImageButton = document.getElementById('chat-image-button');
+        const chatImageInput = document.getElementById('chat-image-input');
+        const chatImagePreview = document.getElementById('chat-image-preview');
+        const startRepairButton = document.getElementById('start-repair-button');
+
+        // Initialize charts
+        const chartConfig = {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Time (minutes)'
+                        },
+                        min: 0,
+                        max: 10,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                return value;
+                            }
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        };
+
+        const rpmChart = new Chart(
+            document.getElementById('rpmChart'),
+            {
+                ...chartConfig,
+                data: {
+                    labels: Array.from({length: 11}, (_, i) => i),
+                    datasets: [{
+                        label: 'Engine RPM',
+                        data: Array(11).fill(null),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartConfig.options,
+                    scales: {
+                        ...chartConfig.options.scales,
+                        y: {
+                            ...chartConfig.options.scales.y,
+                            title: {
+                                display: true,
+                                text: 'RPM'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        const tempChart = new Chart(
+            document.getElementById('tempChart'),
+            {
+                ...chartConfig,
+                data: {
+                    labels: Array.from({length: 11}, (_, i) => i),
+                    datasets: [{
+                        label: 'Coolant Temperature',
+                        data: Array(11).fill(null),
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartConfig.options,
+                    scales: {
+                        ...chartConfig.options.scales,
+                        y: {
+                            ...chartConfig.options.scales.y,
+                            title: {
+                                display: true,
+                                text: '°C'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        const speedChart = new Chart(
+            document.getElementById('speedChart'),
+            {
+                ...chartConfig,
+                data: {
+                    labels: Array.from({length: 11}, (_, i) => i),
+                    datasets: [{
+                        label: 'Vehicle Speed',
+                        data: Array(11).fill(null),
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartConfig.options,
+                    scales: {
+                        ...chartConfig.options.scales,
+                        y: {
+                            ...chartConfig.options.scales.y,
+                            title: {
+                                display: true,
+                                text: 'mph'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        // Store the data points
+        const metricData = {
+            ENGINE_RPM: Array(11).fill(null),
+            COOLANT_TEMP: Array(11).fill(null),
+            SPEED: Array(11).fill(null)
+        };
+
+        function updateMetricsUI(metrics) {
+            console.log("[JS] updateMetricsUI called with:", JSON.stringify(metrics));
+            if (!metrics || typeof metrics !== 'object') {
+                console.warn("Invalid metrics data received");
+                return;
+            }
+
+            // Update data arrays with actual values
+            if (metrics.ENGINE_RPM?.value !== undefined) {
+                const rpmValues = Array.isArray(metrics.ENGINE_RPM.value) ? 
+                    metrics.ENGINE_RPM.value : 
+                    [metrics.ENGINE_RPM.value];
+                // Pad with nulls if we have fewer than 11 values
+                metricData.ENGINE_RPM = [...rpmValues, ...Array(11 - rpmValues.length).fill(null)];
+            }
+
+            if (metrics.COOLANT_TEMP?.value !== undefined) {
+                const tempValues = Array.isArray(metrics.COOLANT_TEMP.value) ? 
+                    metrics.COOLANT_TEMP.value : 
+                    [metrics.COOLANT_TEMP.value];
+                // Pad with nulls if we have fewer than 11 values
+                metricData.COOLANT_TEMP = [...tempValues, ...Array(11 - tempValues.length).fill(null)];
+            }
+
+            if (metrics.SPEED?.value !== undefined) {
+                const speedValues = Array.isArray(metrics.SPEED.value) ? 
+                    metrics.SPEED.value : 
+                    [metrics.SPEED.value];
+                // Pad with nulls if we have fewer than 11 values
+                metricData.SPEED = [...speedValues, ...Array(11 - speedValues.length).fill(null)];
+            }
+
+            // Update all charts at once
+            rpmChart.data.datasets[0].data = [...metricData.ENGINE_RPM];
+            tempChart.data.datasets[0].data = [...metricData.COOLANT_TEMP];
+            speedChart.data.datasets[0].data = [...metricData.SPEED];
+
+            rpmChart.update();
+            tempChart.update();
+            speedChart.update();
+        }
+
+        function updateStatusUI(statusInfo) {
+            // console.log("[JS] updateStatusUI called with:", JSON.stringify(statusInfo)); // DEBUG
+            if (!statusInfo || typeof statusInfo !== 'object') { console.warn("Invalid statusInfo received"); return; }
+
+            // Update current status
+            currentStatus = statusInfo.status || 'OK';
+            
+            // Update active issue key if provided
+            if (statusInfo.issue_key) {
+                activeIssueKey = statusInfo.issue_key;
+            }
+
+            // Status Bar
+            statusText.textContent = statusInfo.status || 'Unknown';
+            statusBox.className = `status ${statusInfo.status || 'UNKNOWN'}`;
+
+            // Instructions / Analysis
+            const currentAction = statusInfo.action || {};
+            instructionText.textContent = currentAction.instructions || (statusInfo.status === 'OK' ? "All systems nominal." : 'Analysis unavailable.');
+
+            // Active DTCs & Heal Buttons
+            dtcList.innerHTML = '';
+            const activeDtcs = statusInfo.active_dtcs || [];
+            activeDtcCodes = []; // Reset active DTC codes
+            if (activeDtcs.length > 0) {
+                activeDtcs.forEach(item => {
+                    if (typeof item === 'object' && item.code) {
+                        activeDtcCodes.push(item.code); // Track active DTC codes
+                        const li = document.createElement('li');
+                        const textSpan = document.createElement('span'); textSpan.className = 'dtc-text';
+                        textSpan.textContent = `${item.code} - ${item.desc || 'Unknown'}`;
+                        li.appendChild(textSpan);
+                        if (dtcHealability[item.code] && dtcHealability[item.code].healable) { // Check if healable
+                             const button = document.createElement('button'); button.textContent = 'Attempt Heal';
+                             button.className = 'heal-button-dtc'; button.dataset.dtcCode = item.code;
+                             button.onclick = handleHealButtonClick;
+                             // Keep button disabled if it's in the resolved list visually
+                             button.disabled = codesInResolvedList.has(item.code);
+                             li.appendChild(button);
+                        }
+                        dtcList.appendChild(li);
+                    }
+                });
+            } else { dtcList.innerHTML = '<li>None</li>'; }
+
+            // Resolved DTCs
+            const resolvedThisCycle = statusInfo.resolved_dtcs_this_cycle || [];
+            if (resolvedThisCycle.length > 0) {
+                // Always check for and remove the "None yet" placeholder when we have actual resolved DTCs
+                const placeholderItem = resolvedDtcList.querySelector('li:only-child');
+                if (placeholderItem && placeholderItem.textContent === 'None yet') {
+                    resolvedDtcList.innerHTML = '';
+                }
+                
+                resolvedThisCycle.forEach(item => {
+                    if (typeof item === 'object' && item.code && !codesInResolvedList.has(item.code)) {
+                         codesInResolvedList.add(item.code); // Add to set to track visually added
+                         const li = document.createElement('li');
+                         li.textContent = `${item.code} - ${item.desc || 'Unknown'}`;
+                         const resSpan = document.createElement('span'); resSpan.className = 'resolution-tag';
+                         resSpan.textContent = `(${item.resolution || 'Resolved'})`; li.appendChild(resSpan);
+                         resolvedDtcList.prepend(li); // Add to top
+                         // Disable corresponding heal button in active list immediately
+                         const activeBtn = dtcList.querySelector(`.heal-button-dtc[data-dtc-code="${item.code}"]`);
+                         if(activeBtn) activeBtn.disabled = true;
+                    }
+                });
+            }
+            // Only show "None yet" if the list is truly empty (no children)
+            if (resolvedDtcList.children.length === 0) {
+                resolvedDtcList.innerHTML = '<li>None yet</li>';
+            }
+        }
+
+        // --- Handler for individual Heal Buttons ---
+        function handleHealButtonClick(event) {
+            const button = event.target; const dtcCode = button.dataset.dtcCode;
+            if (!dtcCode) { return; }
+            console.log("Sending self-heal request for DTC:", dtcCode);
+            button.disabled = true; button.textContent = 'Healing...';
+            const issueKey = `DTC_${dtcCode}`;
+
+            fetch('/trigger_heal', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ issue_key: issueKey, dtc_code: dtcCode }) })
+            .then(res => res.json())
+            .then(data => { 
+                // Move the DTC from active to resolved immediately in the UI
+                const dtcListItem = button.closest('li');
+                if (dtcListItem) {
+                    // Remove from active list
+                    dtcListItem.remove();
+                    
+                    // First check for and remove the "None yet" placeholder
+                    const placeholderItem = resolvedDtcList.querySelector('li:only-child');
+                    if (placeholderItem && placeholderItem.textContent === 'None yet') {
+                        resolvedDtcList.innerHTML = '';
+                    }
+                    
+                    // Add to resolved list
+                    const li = document.createElement('li');
+                    const dtcInfo = dtcHealability[dtcCode] || { desc: 'Unknown' };
+                    li.textContent = `${dtcCode} - ${dtcInfo.desc}`;
+                    const resSpan = document.createElement('span'); 
+                    resSpan.className = 'resolution-tag';
+                    resSpan.textContent = '(Self-Healed)'; 
+                    li.appendChild(resSpan);
+                    resolvedDtcList.prepend(li);
+                    
+                    // Add to tracked resolved codes
+                    codesInResolvedList.add(dtcCode);
+                }
+                
+                alert(data.message || "Heal finished.");
+            })
+            .catch((error) => { 
+                console.error('Heal Error:', error); 
+                alert("Error sending heal command."); 
+                // Re-enable button on error
+                button.disabled = false;
+                button.textContent = 'Attempt Heal';
+            })
+            // No finally to re-enable; rely on state update to potentially remove DTC or keep button enabled
+        }
+
+        function updateSearchStatusUI(status, message, isComplete = false) {
+            const searchStatus = document.getElementById('search-status');
+            const searchStatusText = document.getElementById('search-status-text');
+            
+            if (!searchStatus || !searchStatusText) return;
+            
+            searchStatusText.textContent = message || status;
+            searchStatus.style.display = 'block';
+            
+            if (isComplete) {
+                searchStatus.style.display = 'none';
+            }
+        }
+
+        function updatePartsRecommendationsUI(recommendations, summary) {
+            const partsResults = document.getElementById('parts-results');
+            const partCards = document.getElementById('part-cards');
+            const searchSummary = document.getElementById('search-summary');
+            
+            if (!partsResults || !partCards || !searchSummary) return;
+            
+            // Clear previous results
+            partCards.innerHTML = '';
+            
+            if (!recommendations || recommendations.length === 0) {
+                partCards.innerHTML = '<p>No parts found matching your criteria.</p>';
+                partsResults.style.display = 'block';
+                return;
+            }
+            
+            // Update summary
+            searchSummary.textContent = summary || `Found ${recommendations.length} parts that match your requirements.`;
+            
+            // Create a card for each part
+            recommendations.forEach(part => {
+                const card = document.createElement('div');
+                card.className = part.is_best_overall ? 'part-card best-overall' : 'part-card';
+                
+                const title = document.createElement('h3');
+                title.textContent = part.title;
+                if (part.is_best_overall) {
+                    const badge = document.createElement('span');
+                    badge.className = 'best-badge';
+                    badge.textContent = 'BEST OPTION';
+                    title.appendChild(badge);
+                }
+                card.appendChild(title);
+                
+                const details = document.createElement('div');
+                details.className = 'part-details';
+                
+                details.innerHTML = `
+                    <p><strong>Price:</strong> ${part.price}</p>
+                    <p><strong>Source:</strong> ${part.source}</p>
+                    <p><strong>Location:</strong> ${part.location}</p>
+                    <p><strong>Rating:</strong> ${part.rating}</p>
+                    <p><strong>Description:</strong> ${part.description}</p>
+                `;
+                
+                if (part.reasons && part.reasons.length > 0) {
+                    const reasons = document.createElement('div');
+                    reasons.className = 'part-reasons';
+                    
+                    const reasonsTitle = document.createElement('h4');
+                    reasonsTitle.textContent = 'Why this is recommended:';
+                    reasons.appendChild(reasonsTitle);
+                    
+                    const reasonsList = document.createElement('ul');
+                    part.reasons.forEach(reason => {
+                        const item = document.createElement('li');
+                        item.textContent = reason;
+                        reasonsList.appendChild(item);
+                    });
+                    reasons.appendChild(reasonsList);
+                    details.appendChild(reasons);
+                }
+                
+                if (part.drawbacks && part.drawbacks.length > 0) {
+                    const drawbacks = document.createElement('div');
+                    drawbacks.className = 'part-drawbacks';
+                    
+                    const drawbacksTitle = document.createElement('h4');
+                    drawbacksTitle.textContent = 'Potential drawbacks:';
+                    drawbacks.appendChild(drawbacksTitle);
+                    
+                    const drawbacksList = document.createElement('ul');
+                    part.drawbacks.forEach(drawback => {
+                        const item = document.createElement('li');
+                        item.textContent = drawback;
+                        drawbacksList.appendChild(item);
+                    });
+                    drawbacks.appendChild(drawbacksList);
+                    details.appendChild(drawbacks);
+                }
+                
+                if (part.best_for) {
+                    const bestFor = document.createElement('p');
+                    bestFor.innerHTML = `<strong>Best for:</strong> ${part.best_for}`;
+                    details.appendChild(bestFor);
+                }
+                
+                card.appendChild(details);
+                
+                const buyLink = document.createElement('a');
+                buyLink.href = part.link;
+                buyLink.className = 'buy-button';
+                buyLink.textContent = 'Buy Now';
+                buyLink.target = '_blank';
+                buyLink.rel = 'noopener noreferrer';
+                card.appendChild(buyLink);
+                
+                partCards.appendChild(card);
+            });
+            
+            // Show the parts results
+            partsResults.style.display = 'block';
+            searchStatus.style.display = 'none';
+        }
+
+        function updateRepairStatus(status, attempt, maxAttempts) {
+            if (!repairStatus || !repairStatusMessage || !repairAttempts) {
+                console.error("Required repair status UI elements not found");
+                return;
+            }
+
+            repairStatus.style.display = 'block';
+            repairAttempts.textContent = `Attempt ${attempt} of ${maxAttempts}`;
+            
+            repairStatus.className = 'repair-status';
+            if (status === 'resolved') {
+                repairStatus.classList.add('success');
+                repairStatusMessage.textContent = 'Issue resolved successfully!';
+                repairInProgress = false;
+                chatSendButton.disabled = true;
+                chatImageButton.disabled = true;
+            } else if (status === 'mechanic_referral') {
+                repairStatus.classList.add('referral');
+                repairStatusMessage.textContent = 'Maximum attempts reached. Please consult a professional mechanic.';
+                repairInProgress = false;
+                chatSendButton.disabled = true;
+                chatImageButton.disabled = true;
+            } else {
+                repairStatus.classList.add('info');
+                repairStatusMessage.textContent = 'DIY repair in progress...';
+            }
+        }
+        
+        function updateAppointmentsUI(appointments) {
+            console.log("[JS] updateAppointmentsUI called with:", JSON.stringify(appointments));
+            
+            const appointmentCards = document.getElementById('appointment-cards');
+            const appointmentsList = document.getElementById('appointments-list');
+            
+            if (!appointmentCards || !appointmentsList) {
+                console.error("Required appointment UI elements not found");
+                return;
+            }
+            
+            // Clear previous appointments
+            appointmentCards.innerHTML = '';
+            
+            if (!appointments || appointments.length === 0) {
+                appointmentCards.innerHTML = '<p>No appointments available at this time.</p>';
+                return;
+            }
+            
+            // Create a card for each appointment
+            appointments.forEach(apt => {
+                const card = document.createElement('div');
+                card.className = 'appointment-card';
+                
+                const title = document.createElement('h3');
+                title.textContent = apt.shop_name;
+                card.appendChild(title);
+                
+                const details = document.createElement('div');
+                details.className = 'appointment-details';
+                
+                details.innerHTML = `
+                    <p><strong>Rating:</strong> ${apt.shop_rating}/5</p>
+                    <p><strong>Distance:</strong> ${apt.shop_distance}</p>
+                    <p><strong>Specialty:</strong> ${apt.shop_specialty}</p>
+                    <p><strong>Date/Time:</strong> ${apt.datetime}</p>
+                    <p><strong>Estimated Cost:</strong> ${apt.price_estimate}</p>
+                `;
+                card.appendChild(details);
+                
+                const bookBtn = document.createElement('button');
+                bookBtn.className = 'book-button';
+                bookBtn.textContent = 'Book Appointment';
+                bookBtn.dataset.appointmentId = apt.id;
+                bookBtn.onclick = handleBookAppointmentClick;
+                card.appendChild(bookBtn);
+                
+                appointmentCards.appendChild(card);
+            });
+            
+            // Show the appointments list
+            appointmentsList.style.display = 'block';
+        }
+        
+        function updateBookingStatusUI(status, isSuccess = true) {
+            const bookingStatus = document.getElementById('booking-status');
+            const bookingStatusText = document.getElementById('booking-status-text');
+            
+            if (!bookingStatus || !bookingStatusText) {
+                console.error("Required booking status UI elements not found");
+                return;
+            }
+            
+            bookingStatus.className = isSuccess ? 'booking-status success' : 'booking-status error';
+            bookingStatusText.textContent = status;
+            bookingStatus.style.display = 'block';
+            
+            // Disable all booking buttons
+            if (isSuccess) {
+                const bookButtons = document.querySelectorAll('.book-button');
+                bookButtons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.textContent = 'Booking Complete';
+                });
+            }
+        }
+
+        function addMessageToChat(role, content, timestamp, imageData) {
+            if (!chatMessages) {
+                console.error("Chat messages container not found");
+                return;
+            }
+
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', role);
+            
+            if (content) {
+                const textNode = document.createTextNode(content);
+                messageElement.appendChild(textNode);
+            }
+            
+            if (imageData) {
+                const imageElement = document.createElement('img');
+                imageElement.classList.add('message-image');
+                imageElement.src = imageData;
+                imageElement.alt = 'Uploaded image';
+                messageElement.appendChild(imageElement);
+            }
+            
+            if (timestamp) {
+                const timestampElement = document.createElement('span');
+                timestampElement.classList.add('message-timestamp');
+                timestampElement.textContent = timestamp;
+                messageElement.appendChild(timestampElement);
+            } else {
+                const timestampElement = document.createElement('span');
+                timestampElement.classList.add('message-timestamp');
+                const now = new Date();
+                timestampElement.textContent = now.toLocaleTimeString();
+                messageElement.appendChild(timestampElement);
+            }
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function handleBookAppointmentClick(event) {
+            const button = event.target;
+            const appointmentId = button.dataset.appointmentId;
+            
+            if (!appointmentId) {
+                console.error("No appointment ID found");
+                return;
+            }
+            
+            // Disable the clicked button
+            button.disabled = true;
+            button.textContent = 'Booking...';
+            
+            // Send booking request to server
+            fetch('/book_appointment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    appointment_id: parseInt(appointmentId)  // Convert to number
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    // The booking confirmation will come through SSE
+                    const bookedAppointment = data.appointment;
+                    const confirmationMessage = `Appointment booked successfully with ${bookedAppointment.shop_name} on ${bookedAppointment.datetime} for ${bookedAppointment.price_estimate}`;
+                    updateBookingStatusUI(confirmationMessage, true);
+                    
+                    // Update the specific appointment card that was booked
+                    const bookedCard = document.querySelector(`.appointment-card button[data-appointment-id="${bookedAppointment.id}"]`);
+                    if (bookedCard) {
+                        const card = bookedCard.closest('.appointment-card');
+                        card.style.border = '2px solid #5cb85c';
+                        card.style.backgroundColor = '#f0f9f0';
+                    }
+                } else {
+                    updateBookingStatusUI(data.message || 'Failed to book appointment', false);
+                    button.disabled = false;
+                    button.textContent = 'Book Appointment';
+                }
+            })
+            .catch(error => {
+                console.error('Booking error:', error);
+                updateBookingStatusUI('Error communicating with server', false);
+                button.disabled = false;
+                button.textContent = 'Book Appointment';
+            });
+        }
+
+        // --- Server-Sent Events (SSE) ---
+        console.log("Initializing SSE connection...");
+        const eventSource = new EventSource('/stream');
+        eventSource.onopen = function() { console.log("SSE Connection opened."); statusText.textContent = 'Connected.'; }
+        eventSource.onerror = function(error) { 
+            console.error("SSE Error:", error); 
+            // Don't close the connection on error, just update status
+            statusText.textContent = 'Connection Error'; 
+            statusBox.className = 'status CRITICAL'; 
+        }
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'update' && data.payload) {
+                    if(data.payload.metrics) updateMetricsUI(data.payload.metrics);
+                    if(data.payload.status_info) updateStatusUI(data.payload.status_info);
+                } else if (data.type === 'appointments' && data.payload) {
+                    updateAppointmentsUI(data.payload);
+                } else if (data.type === 'booking_confirmation' && data.payload) {
+                    const bookedAppointment = data.payload.appointment;
+                    const confirmationMessage = `Appointment booked successfully with ${bookedAppointment.shop_name} on ${bookedAppointment.datetime} for ${bookedAppointment.price_estimate}`;
+                    updateBookingStatusUI(confirmationMessage, true);
+                    
+                    // Update the specific appointment card that was booked
+                    const bookedCard = document.querySelector(`.appointment-card button[data-appointment-id="${bookedAppointment.id}"]`);
+                    if (bookedCard) {
+                        const card = bookedCard.closest('.appointment-card');
+                        card.style.border = '2px solid #5cb85c';
+                        card.style.backgroundColor = '#f0f9f0';
+                    }
+                } else if (data.type === 'parts_search_started' && data.payload) {
+                    updateSearchStatusUI(data.payload.status, data.payload.message);
+                    searchPartsBtn.textContent = 'Searching...';
+                } else if (data.type === 'parts_search_progress' && data.payload) {
+                    updateSearchStatusUI(data.payload.status, 
+                        `${data.payload.message} (Step: ${data.payload.step})`);
+                } else if (data.type === 'parts_recommendations' && data.payload) {
+                    updatePartsRecommendationsUI(data.payload.recommendations, data.payload.summary);
+                    searchPartsBtn.textContent = 'Find Parts';
+                    searchPartsBtn.disabled = false;
+                } else if (data.type === 'diy_repair_started' && data.payload) {
+                    // Update repair status
+                    updateRepairStatus(data.payload.status, data.payload.attempt, data.payload.max_attempts);
+                    
+                    // Show chat container
+                    chatContainer.style.display = 'flex';
+                    startRepairButton.disabled = true;
+                    repairInProgress = true;
+                    
+                    // Clear existing messages
+                    chatMessages.innerHTML = '';
+                    
+                    // Add initial instruction message
+                    if (data.payload.conversation && data.payload.conversation.length > 0) {
+                        // Use the conversation history if available
+                        data.payload.conversation.forEach(msg => {
+                            addMessageToChat(msg.role, msg.content, msg.timestamp, msg.image);
+                        });
+                    } else {
+                        // Fallback to just the message
+                        addMessageToChat('agent', data.payload.message);
+                    }
+                } else if (data.type === 'diy_repair_message' && data.payload) {
+                    // Refresh conversation history
+                    if (data.payload.conversation && data.payload.conversation.length > 0) {
+                        chatMessages.innerHTML = '';
+                        data.payload.conversation.forEach(msg => {
+                            addMessageToChat(msg.role, msg.content, msg.timestamp, msg.image);
+                        });
+                    } else {
+                        // Add just the latest message
+                        addMessageToChat('agent', data.payload.message);
+                    }
+                    
+                    // Update repair status
+                    updateRepairStatus(data.payload.status, data.payload.attempt, data.payload.max_attempts);
+                    
+                    // Re-enable send button
+                    chatSendButton.disabled = false;
+                    chatImageButton.disabled = false;
+                } else { 
+                    console.warn("Unknown SSE structure:", data); 
+                }
+            } catch (e) { console.error("SSE Parse Error:", e, "Data:", event.data); }
+        };
+
+        // Add new event handlers for the new UI components
+        document.addEventListener('DOMContentLoaded', function() {
+            // ... (Existing DOMContentLoaded code remains the same) ...
+            
+            // Scheduling event handlers
+            const findAppointmentBtn = document.getElementById('find-appointment-btn');
+            const appointmentsList = document.getElementById('appointments-list');
+            const appointmentCards = document.getElementById('appointment-cards');
+            const bookingStatus = document.getElementById('booking-status');
+            const bookingStatusText = document.getElementById('booking-status-text');
+            
+            // Marketplace event handlers
+            const partsSearchForm = document.getElementById('parts-search-form');
+            const searchPartsBtn = document.getElementById('search-parts-btn');
+            const searchStatus = document.getElementById('search-status');
+            const searchStatusText = document.getElementById('search-status-text');
+            const partsResults = document.getElementById('parts-results');
+            const partCards = document.getElementById('part-cards');
+            const searchSummary = document.getElementById('search-summary');
+            
+            // Event listener for Find Appointments button
+            findAppointmentBtn.addEventListener('click', function() {
+                // Reset UI elements
+                appointmentsList.style.display = 'none';
+                bookingStatus.style.display = 'none';
+                findAppointmentBtn.disabled = true;
+                findAppointmentBtn.textContent = 'Finding appointments...';
+                
+                // Prepare request data
+                const requestData = {
+                    issue_key: activeIssueKey || 'GENERAL_MAINTENANCE',
+                    dtcs: activeDtcCodes || [],
+                    severity: currentStatus || 'WARNING'
+                };
+                
+                // Send request to server
+                fetch('/get_appointments', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(requestData)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Appointments response:", data);
+                    if (data.status === 'success') {
+                        // Updates will come via SSE
+                        findAppointmentBtn.textContent = 'Refresh Appointments';
+                    } else {
+                        alert(data.message || "Error finding appointments");
+                        findAppointmentBtn.textContent = 'Try Again';
+                    }
+                })
+                .catch(error => {
+                    console.error('Appointment fetch error:', error);
+                    alert("Error communicating with server");
+                    findAppointmentBtn.textContent = 'Try Again';
+                })
+                .finally(() => {
+                    findAppointmentBtn.disabled = false;
+                });
+            });
+            
+            // Event listener for Parts Search Form
+            partsSearchForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get form values
+                const partName = document.getElementById('part-name').value.trim();
+                const partDtc = document.getElementById('part-dtc').value.trim();
+                
+                if (!partName) {
+                    alert("Please enter a part name");
+                    return;
+                }
+                
+                // Reset UI elements
+                partsResults.style.display = 'none';
+                searchStatus.style.display = 'block';
+                searchStatusText.textContent = 'Searching for parts...';
+                searchPartsBtn.disabled = true;
+                searchPartsBtn.textContent = 'Searching...';
+                
+                // Prepare request data
+                const requestData = {
+                    part_name: partName,
+                    dtc_code: partDtc || null,
+                    vehicle_info: {
+                        year: "2018",  // Default values for now
+                        make: "Toyota",
+                        model: "Camry",
+                        engine: "2.5L 4-cylinder",
+                        transmission: "Automatic"
+                    }
+                };
+                
+                // Send request to server
+                fetch('/search_parts', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(requestData)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Parts search response:", data);
+                    if (data.status === 'success') {
+                        // Updates will come via SSE
+                        updateSearchStatusUI('in_progress', 'Started searching for parts. This may take a moment...');
+                    } else {
+                        alert(data.message || "Error searching for parts");
+                        searchPartsBtn.textContent = 'Find Parts';
+                        searchPartsBtn.disabled = false;
+                        searchStatus.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Parts search error:', error);
+                    alert("Error communicating with server");
+                    searchPartsBtn.textContent = 'Find Parts';
+                    searchPartsBtn.disabled = false;
+                    searchStatus.style.display = 'none';
+                });
+            });
+            
+            // Event listener for starting a repair session
+            startRepairButton.addEventListener('click', function() {
+                // Get active DTCs from the UI
+                const activeDTCs = [];
+                document.querySelectorAll('.dtcs li').forEach(li => {
+                    const dtcCode = li.querySelector('.dtc-text').textContent.split(' ')[0];
+                    activeDTCs.push(dtcCode);
+                });
+                
+                if (activeDTCs.length === 0) {
+                    alert('No DTC codes detected. DIY repair requires at least one active DTC code.');
+                    return;
+                }
+                
+                // Disable the button while processing
+                startRepairButton.disabled = true;
+                startRepairButton.textContent = 'Starting repair...';
+                
+                // Start the repair session
+                fetch('/start_diy_repair', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dtc_codes: activeDTCs,
+                        symptoms: 'Check engine light is on'
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        // The actual repair session will be handled by SSE
+                        console.log("Repair session started successfully");
+                    } else {
+                        throw new Error(data.message || "Failed to start repair session");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting repair:', error);
+                    alert('Error starting repair: ' + error.message);
+                    startRepairButton.disabled = false;
+                    startRepairButton.textContent = 'Start DIY Repair Session';
+                });
+            });
+            
+            // Event listener for image button click
+            chatImageButton.addEventListener('click', function() {
+                chatImageInput.click();
+            });
+            
+            // Event listener for image selection
+            chatImageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) {
+                    return;
+                }
+                
+                if (!file.type.match('image.*')) {
+                    alert('Please select an image file');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentImageData = e.target.result;
+                    chatImagePreview.src = currentImageData;
+                    chatImagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            // Event listener for sending a message
+            chatSendButton.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message && !currentImageData) return;
+                if (!repairInProgress) return;
+                
+                // Add user message to chat
+                addMessageToChat('user', message, null, currentImageData);
+                
+                // Get current DTCs
+                const currentDTCs = [];
+                document.querySelectorAll('.dtcs li').forEach(li => {
+                    const dtcCode = li.querySelector('.dtc-text').textContent.split(' ')[0];
+                    currentDTCs.push(dtcCode);
+                });
+                
+                // Send message to server
+                fetch('/send_diy_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        image_data: currentImageData,
+                        current_dtcs: currentDTCs
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // The agent's response will come through SSE
+                        chatSendButton.disabled = false;
+                        chatImageButton.disabled = false;
+                    } else {
+                        alert('Failed to send message: ' + data.message);
+                        chatSendButton.disabled = false;
+                        chatImageButton.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                    alert('Error sending message. Please try again.');
+                    chatSendButton.disabled = false;
+                    chatImageButton.disabled = false;
+                });
+                
+                // Reset inputs
+                chatInput.value = '';
+                currentImageData = null;
+                chatImagePreview.style.display = 'none';
+                
+                // Disable buttons while waiting for response
+                chatSendButton.disabled = true;
+                chatImageButton.disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>
