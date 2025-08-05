@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CANary AI Dashboard</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        .metrics, .status, .action, .dtcs { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .metrics span { display: inline-block; min-width: 150px; font-weight: bold; }
+        .status { background-color: #e7f3e7; border-color: #d0e9c6; }
+        .status.OK { background-color: #e7f3e7; border-color: #d0e9c6; color: #3c763d; }
+        .status.INFO { background-color: #e7f3ff; border-color: #cbe2f7; color: #31708f; }
+        .status.WARNING { background-color: #fcf8e3; border-color: #faebcc; color: #8a6d3b; }
+        .status.ERROR { background-color: #f2dede; border-color: #ebccd1; color: #a94442; }
+        .status.CRITICAL { background-color: #a94442; border-color: #843534; color: #fff; font-weight: bold;}
+        .action { background-color: #f0f0f0; }
+        .action button { padding: 8px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        .action button:hover { background-color: #4cae4c; }
+        .dtcs ul { padding-left: 20px; margin: 5px 0 0 0; }
+        pre { background: #eee; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CANary AI Dashboard</h1>
+
+        <div class="status OK" id="status-box">
+            <h2>Status: <span id="status-text">Connecting...</span></h2>
+        </div>
+
+        <div class="metrics">
+            <h2>Live Metrics</h2>
+            <p><span id="metric-EngineRPM">Engine RPM:</span> --- RPM</p>
+            <p><span id="metric-VehicleSpeed">Vehicle Speed:</span> --- km/h</p>
+            <p><span id="metric-EngineTemp">Engine Temp:</span> --- °C</p>
+            <p><span id="metric-FuelLevel">Fuel Level:</span> --- %</p>
+            <!-- Add more metric placeholders here -->
+        </div>
+
+         <div class="dtcs">
+            <h2>Active DTCs</h2>
+            <ul id="dtc-list">
+                <li>None</li>
+            </ul>
+        </div>
+
+        <div class="action">
+            <h2>Recommended Action</h2>
+            <p id="action-text">Waiting for analysis...</p>
+            <button id="heal-button" style="display: none;">Attempt Self-Heal</button>
+            <div id="instructions" style="margin-top: 10px;">
+                 <h3>Instructions:</h3>
+                 <pre id="instruction-text">No action required.</pre>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        const statusBox = document.getElementById('status-box');
+        const statusText = document.getElementById('status-text');
+        const actionText = document.getElementById('action-text');
+        const instructionText = document.getElementById('instruction-text');
+        const healButton = document.getElementById('heal-button');
+        const dtcList = document.getElementById('dtc-list');
+
+        const metricsPlaceholders = {
+            'EngineRPM': document.getElementById('metric-EngineRPM'),
+            'VehicleSpeed': document.getElementById('metric-VehicleSpeed'),
+            'EngineTemp': document.getElementById('metric-EngineTemp'),
+            'FuelLevel': document.getElementById('metric-FuelLevel')
+             // Add more here matching the HTML
+        };
+
+        let currentIssueKey = null; // Store key for self-heal action
+
+        function updateMetrics(metrics) {
+            for (const key in metricsPlaceholders) {
+                if (metrics[key] && metricsPlaceholders[key]) {
+                    const metric = metrics[key];
+                    metricsPlaceholders[key].textContent = `${key}: ${metric.value} ${metric.unit}`;
+                } else if (metricsPlaceholders[key]) {
+                     // Keep default text or clear if needed
+                     // metricsPlaceholders[key].textContent = `${key}: ---`;
+                }
+            }
+        }
+
+        function updateStatus(state) {
+            statusText.textContent = state.status || 'Unknown';
+            statusBox.className = `status ${state.status || 'UNKNOWN'}`; // Update class for styling
+
+            actionText.textContent = state.action?.type || 'NONE';
+             instructionText.textContent = state.action?.instructions || 'N/A';
+
+            currentIssueKey = state.action?.key || null; // Get the issue key
+
+             // Show/hide self-heal button
+             if (state.action?.action_type === 'SELF_HEAL_ATTEMPT' && state.action?.self_heal_possible) {
+                 healButton.style.display = 'inline-block';
+             } else {
+                 healButton.style.display = 'none';
+             }
+
+             // Update DTC list
+             dtcList.innerHTML = ''; // Clear previous list
+             if (state.active_dtcs && state.active_dtcs.length > 0) {
+                 state.active_dtcs.forEach(dtc => {
+                     const li = document.createElement('li');
+                     li.textContent = dtc;
+                     dtcList.appendChild(li);
+                 });
+             } else {
+                 const li = document.createElement('li');
+                 li.textContent = 'None';
+                 dtcList.appendChild(li);
+             }
+        }
+
+        // --- Server-Sent Events (SSE) ---
+        const eventSource = new EventSource('/stream'); // Connect to Flask stream
+
+        eventSource.onmessage = function(event) {
+            // console.log("Raw data:", event.data); // Debugging
+            try {
+                 const data = JSON.parse(event.data);
+                // console.log("Parsed data:", data); // Debugging
+
+                if (data.type === 'metrics') {
+                    updateMetrics(data.payload);
+                } else if (data.type === 'status') {
+                    updateStatus(data.payload);
+                }
+            } catch (e) {
+                 console.error("Failed to parse SSE data:", e);
+                 console.error("Received data:", event.data);
+            }
+        };
+
+        eventSource.onerror = function(err) {
+            console.error("EventSource failed:", err);
+            statusText.textContent = 'Connection Error';
+            statusBox.className = 'status CRITICAL';
+            // Optionally try to reconnect or inform the user
+            // eventSource.close(); // Close if error is fatal
+        };
+
+         // --- Self-Heal Button ---
+         healButton.onclick = function() {
+             if (!currentIssueKey) {
+                 alert("No issue selected for self-heal.");
+                 return;
+             }
+             console.log("Sending self-heal request for:", currentIssueKey);
+             // Send request to Flask backend to trigger self-heal
+             fetch('/trigger_heal', {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                 },
+                 body: JSON.stringify({ issue_key: currentIssueKey }),
+             })
+             .then(response => response.json())
+             .then(data => {
+                 console.log('Self-heal response:', data);
+                 alert(data.message || "Heal attempt finished.");
+                  // UI might update automatically via SSE stream if state changes
+             })
+             .catch((error) => {
+                 console.error('Error triggering self-heal:', error);
+                 alert("Error sending self-heal command.");
+             });
+         };
+
+    </script>
+</body>
+</html>
