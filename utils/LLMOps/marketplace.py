@@ -27,7 +27,7 @@ class MarketplaceAgent:
         """Configure Google Gemini API"""
         try:
             # api_key = os.environ.get("GOOGLE_API_KEY")
-            genai.configure(api_key='AIzaSyCqv0vDXbmtcSEbBU3vEQKUmKV_87PTXrQ')
+            genai.configure(api_key='******')
             print(f"[MarketplaceAgent] Google GenAI configured with model: {GEMINI_MODEL_NAME}.")
             return True
         except Exception as e:
