@@ -22,7 +22,7 @@ class DIYRepairAgent:
         """Configure Google Gemini API"""
         try:
             # api_key = os.environ.get("GOOGLE_API_KEY")
-            genai.configure(api_key='AIzaSyByDknA9EI7ImXGhnkv55403p8mUREzCR0')
+            genai.configure(api_key='******')
             print(f"[DIYRepairAgent] Google GenAI configured with model: {GEMINI_MODEL_NAME}.")
             return True
         except Exception as e:
