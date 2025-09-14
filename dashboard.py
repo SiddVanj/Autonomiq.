@@ -27,7 +27,7 @@ sse_queue = queue.Queue()
 http_data_queue = None # IMPORTANT: Initialized and passed by main.py
 
 # --- Expected API Key ---
-EXPECTED_API_KEY = os.environ.get("DEVICE_API_KEY", "sflNQfPaiL11iSEtzVFcmndhmj4GH11M")
+EXPECTED_API_KEY = os.environ.get("DEVICE_API_KEY", "*****")
 
 # --- Flask App Setup ---
 app = Flask(__name__, template_folder='../templates') # Point to templates folder correctly
